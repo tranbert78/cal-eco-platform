@@ -19,7 +19,6 @@
     "dotenv": "^16.4.5",
     "ecpair": "^2.1.0",
     "email-validator": "^2.0.4",
-    "ethereum-address": "0.0.4",
     "ethereumjs-util": "^7.1.5",
     "ethers": "^5.7.2",
     "execp": "^0.0.1",
@@ -35,11 +34,10 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^2.7.0",
     "nodejs-base64": "^2.0.0",
-    "nodemailer": "^6.9.15",
+    "nodemailer": "^7.0.12",
     "probe-image-size": "^7.2.3",
     "qrcode": "^1.5.4",
     "referral-code-generator": "^1.0.8",
-    "request": "^2.88.2",
     "request-ip": "^3.3.0",
     "reverse-string": "0.0.6",
     "send-crypto": "^0.0.0",
@@ -49,7 +47,6 @@
     "tiny-secp256k1": "^2.2.3",
     "tronweb": "^6.0.4",
     "validate-phone-number-node-js": "0.0.1",
-    "xlsx": "^0.18.5",
     "xrpl": "^3.1.0"
   },
   "description": ""
