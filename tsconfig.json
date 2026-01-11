@@ -1,25 +1,78 @@
 {
   "compilerOptions": {
+    // Target JavaScript version ES5 (very old).
+    // This is problematic for modern Web3 libraries (viem, AppKit, WalletConnect v2),
+    // which rely on ES2020+ features like BigInt, const generics, and advanced typing.
     "target": "es5",
+
+    // Standard libraries included during compilation.
+    // DOM: browser APIs
+    // DOM.Iterable: iterable DOM collections
+    // esnext: latest JS features (but mismatched with target=es5)
+    // Inconsistent: asking for ESNext libs but compiling to ES5.
     "lib": [
       "dom",
       "dom.iterable",
       "esnext"
     ],
+
+    // Allows JavaScript files to be part of the project.
+    // Common in CRA projects and legacy codebases.
     "allowJs": true,
+
+    // Skips type checking of .d.ts files.
+    // This hides many third-party typing errors,
+    // but does NOT protect against syntax incompatibility (your ViemUtil error).
     "skipLibCheck": true,
+
+    // Enables interop between CommonJS and ES modules.
+    // Required for most npm packages.
     "esModuleInterop": true,
+
+    // Allows default imports from modules without default exports.
+    // Helps compatibility with older libraries.
     "allowSyntheticDefaultImports": true,
+
+    // Enables full strict type checking.
+    // Good for correctness, but exposes incompatibilities
+    // when combined with outdated targets.
     "strict": true,
+
+    // Enforces consistent file name casing in imports.
+    // Prevents Linux-only production bugs.
     "forceConsistentCasingInFileNames": true,
+
+    // Prevents switch/case fallthrough without explicit break.
+    // Important for wallet / network selection logic.
     "noFallthroughCasesInSwitch": true,
+
+    // Outputs ES module syntax.
+    // Mismatch: ESNext modules + ES5 target is an unstable combo.
     "module": "esnext",
+
+    // Uses Node.js resolution rules.
+    // Standard for npm-based projects.
     "moduleResolution": "node",
+
+    // Allows importing JSON files as modules.
+    // Useful for ABI files and static configs.
     "resolveJsonModule": true,
+
+    // Forces each file to be transpiled independently.
+    // Required by CRA and React fast refresh.
     "isolatedModules": true,
+
+    // Prevents TypeScript from emitting JS output.
+    // Bundler (react-scripts) handles compilation.
     "noEmit": true,
+
+    // Uses the new React JSX transform (React 17+).
+    // No need to import React explicitly in JSX files.
     "jsx": "react-jsx"
   },
+
+  // Restricts TypeScript to only check files in /src.
+  // Prevents scanning node_modules and build output.
   "include": [
     "src"
   ]

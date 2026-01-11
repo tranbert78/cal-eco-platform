@@ -1,141 +1,186 @@
-import React, { useState } from "react";
-import { useWeb3React } from "@web3-react/core";
+// src/components/auth/ConnectWallet.tsx
+import React, { useEffect, useRef } from "react";
 
-import { metaMask } from "../../../connectors/metaMask";
-import { walletConnect } from "../../../connectors/walletConnect";
-import { coinbaseWallet } from "../../../connectors/coinbaseWallet";
-import { getEllipsisTxt } from "../../../utils/formatters";
-import ConnectModal from "./ConnectModal";
-import DisconnectModal from "./DisconnectModal";
-import MotionButton from "../../../UI/MotionButton";
+// Reown AppKit (WalletConnect v2 / modern flow)
+// This replaces ALL manual connector activation logic.
+import { useAppKit } from "@reown/appkit/react";
 
-const BUTTON_STYLE: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid #FF49C1",
-  borderRadius: 35,
-  color: "#fff",
-  fontFamily: "montserrat-medium",
-  fontWeight: 700,
-  textShadow: "0px 0px 4px rgba(0, 0, 0, 0.25)",
-  padding: "10px 20px",
-};
+import Metamask from "../../assets/wallet/Metamask.svg";
+import Phantom from "../../assets/wallet/Phantom.svg";
+import Coinbase from "../../assets/wallet/Coinbase.svg";
+import WalletConnectIcon from "../../assets/wallet/WalletConnect.svg";
 
-interface WantedChain {
-  chain?: number;
+interface ConnectModalProps {
+  isModalOpen: boolean;
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedWallet: React.Dispatch<
+    React.SetStateAction<"MetaMask" | "WalletConnect" | "Coinbase" | null>
+  >;
 }
 
-const ConnectAccount: React.FC<WantedChain> = () => {
-  const { account } = useWeb3React();
+/**
+ * ConnectWallet (AppKit version)
+ *
+ * REMOVED (old approach):
+ *   import { metaMask } from "../../connectors/metaMask";
+ *   import { walletConnect } from "../../connectors/walletConnect";
+ *   import { coinbaseWallet } from "../../connectors/coinbaseWallet";
+ *
+ * REMOVED (old approach):
+ *   await metaMask.activate()
+ *   await walletConnect.activate()
+ *   await coinbaseWallet.activate()
+ *
+ * REPLACEMENT:
+ *   AppKit owns the connection lifecycle.
+ *   We simply call open() to show the AppKit modal.
+ */
+const ConnectWallet: React.FC<ConnectModalProps> = ({
+  isModalOpen,
+  setIsModalOpen,
+  setSelectedWallet,
+}) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
-    null
-  );
+  // AppKit modal controller
+  const { open } = useAppKit();
 
-  const [selectedWallet, setSelectedWallet] = useState<
-    "MetaMask" | "WalletConnect" | "Coinbase Wallet" | null
-  >(null);
+  useEffect(() => {
+    if (!isModalOpen) return;
 
-  const disconnect = async () => {
-    const connectorMapping = {
-      MetaMask: metaMask,
-      WalletConnect: walletConnect,
-      "Coinbase Wallet": coinbaseWallet,
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsModalOpen(false);
     };
 
-    if (selectedWallet) {
-      const connector: any = connectorMapping[selectedWallet];
-      handleClose();
-      setIsAuthModalOpen(false);
-      localStorage.removeItem("connectorId");
-      if (connector.deactivate) {
-        connector.deactivate();
-      } else {
-        connector.resetState();
-      }
-      if (connector && connector.close) {
-        await connector.close();
-      }
-    }
-  };
-  const open = Boolean(anchorEl);
+    window.addEventListener("keydown", handleKeyDown);
 
-  const id = open ? "simple-popover" : undefined;
-  const handleClose = () => {
-    setAnchorEl(null);
+    const id = window.setTimeout(() => {
+      dialogRef.current?.focus();
+    }, 0);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.clearTimeout(id);
+    };
+  }, [isModalOpen, setIsModalOpen]);
+
+  /**
+   * New connection flow:
+   * - "MetaMask / Coinbase / WalletConnect" is now just a UI hint.
+   * - AppKit will present the available wallets and handle the protocol safely.
+   */
+  const connectWith = async (label: "MetaMask" | "WalletConnect" | "Coinbase") => {
+    try {
+      setSelectedWallet(label);
+
+      // Optional: keep only if you use it elsewhere for UX (auto-open / remember choice)
+      window.localStorage.setItem("connectorId", label);
+
+      setIsModalOpen(false);
+
+      // This opens the AppKit modal (WalletConnect v2 flow)
+      await open();
+    } catch (err) {
+      // If user closes the modal or something fails, we don't crash the UI.
+      // You can also show a toast/snackbar here if you want.
+      // console.error("AppKit connect error:", err);
+    }
   };
 
   return (
     <>
-      {account === undefined ? (
-        <>
-          <MotionButton
-            color="secondary"
-            customStyles={BUTTON_STYLE}
-            label="Wallet Connect"
-            startIcon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 7V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
-            onClick={() => setIsAuthModalOpen(true)}
-          />
-          <ConnectModal
-            isModalOpen={isAuthModalOpen}
-            setIsModalOpen={setIsAuthModalOpen}
-            setSelectedWallet={setSelectedWallet}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="connect-wallet-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setIsModalOpen(false)}
           />
 
-          <br />
-        </>
-      ) : (
-        <>
-          <MotionButton
-            color="secondary"
-            customStyles={BUTTON_STYLE}
-            startIcon={
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <div
+              ref={dialogRef}
+              tabIndex={-1}
+              className="w-full max-w-md rounded-2xl bg-custom-gradient p-6 shadow-2xl outline-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2
+                id="connect-wallet-title"
+                className="text-3xl font-semibold text-white font-poppins"
               >
-                <path
-                  d="M15.8827 9.73046V10.5664C15.8827 10.7921 15.7071 10.976 15.4731 10.9843H14.2526C13.8096 10.9843 13.4084 10.6583 13.3749 10.2237C13.3498 9.96452 13.4501 9.7221 13.6173 9.55492C13.7678 9.39609 13.9768 9.3125 14.2025 9.3125H15.4647C15.7071 9.32086 15.8827 9.50476 15.8827 9.73046Z"
-                  fill="white"
-                />
-                <path
-                  d="M12.9902 8.93621C12.5722 9.34581 12.3716 9.95603 12.5388 10.5913C12.7561 11.3687 13.5168 11.8619 14.3193 11.8619H15.0465C15.5063 11.8619 15.8824 12.2381 15.8824 12.6978V12.8567C15.8824 14.587 14.4697 15.9997 12.7394 15.9997H3.14306C1.4127 15.9997 0 14.587 0 12.8567V7.23093C0 6.20277 0.493192 5.29162 1.25388 4.7232C1.78051 4.32196 2.43252 4.08789 3.14306 4.08789H12.7394C14.4697 4.08789 15.8824 5.50059 15.8824 7.23093V7.59873C15.8824 8.05849 15.5063 8.43465 15.0465 8.43465H14.1939C13.7258 8.43465 13.2995 8.61856 12.9902 8.93621Z"
-                  fill="white"
-                />
-                <path
-                  d="M11.4936 2.35729C11.7193 2.58299 11.527 2.93408 11.2094 2.93408L4.78952 2.92572C4.42172 2.92572 4.22946 2.47432 4.49695 2.21519L5.85114 0.852638C6.99637 -0.284213 8.85211 -0.284213 9.99732 0.852638L11.4602 2.33221C11.4685 2.34057 11.4853 2.34893 11.4936 2.35729Z"
-                  fill="white"
-                />
-              </svg>
-            }
-            fullWidth
-            onClick={(e: any) => {
-              setAnchorEl(e.currentTarget);
-            }}
-            label={getEllipsisTxt(account, 6)}
-          />
+                Connect a wallet
+              </h2>
 
-          {id && (
-            <DisconnectModal
-              isModalOpen={open}
-              handleClose={handleClose}
-              disconnect={disconnect}
-              anchorEl={anchorEl}
-              id={id}
-            />
-          )}
-        </>
+              <div>
+                <p className="self-start text-base leading-10 text-gray-300 font-inter">
+                  Don&apos;t have an account?
+                  <a
+                    href="#aa"
+                    className="ml-1 font-semibold text-primary-900-high-emphasis hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-900-high-emphasis/50 rounded-sm"
+                  >
+                    Register here
+                  </a>
+                </p>
+
+                <div className="mt-6 flex flex-col gap-4">
+                  <button
+                    type="button"
+                    onClick={() => connectWith("MetaMask")}
+                    className="flex items-center gap-4 w-full rounded-lg border border-gray-600 p-3 text-left hover:border-gray-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 active:opacity-90"
+                  >
+                    <img src={Metamask} alt="Metamask" />
+                    <span className="px-2 text-lg font-semibold text-white font-inter">
+                      Continue with Metamask
+                    </span>
+                  </button>
+
+                  {/* Phantom is not an EVM wallet connector in this stack.
+                      Keep the button if you want, but disable it to avoid confusing users. */}
+                  <button
+                    type="button"
+                    disabled
+                    title="Not supported in this build"
+                    className="flex items-center gap-4 w-full rounded-lg border border-gray-600/60 p-3 text-left opacity-50 cursor-not-allowed"
+                  >
+                    <img src={Phantom} alt="Phantom" />
+                    <span className="px-2 text-lg font-semibold text-white font-inter">
+                      Continue with Phantom (not supported)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => connectWith("Coinbase")}
+                    className="flex items-center gap-4 w-full rounded-lg border border-gray-600 p-3 text-left hover:border-gray-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 active:opacity-90"
+                  >
+                    <img src={Coinbase} alt="Coinbase" />
+                    <span className="px-2 text-lg font-semibold text-white font-inter">
+                      Continue with Coinbase
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => connectWith("WalletConnect")}
+                    className="flex items-center gap-4 w-full rounded-lg border border-gray-600 p-3 text-left hover:border-gray-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 active:opacity-90"
+                  >
+                    <img src={WalletConnectIcon} alt="WalletConnect" />
+                    <span className="px-2 text-lg font-semibold text-white font-inter">
+                      Continue with WalletConnect
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
 };
 
-export default ConnectAccount;
+export default ConnectWallet;

@@ -1,11 +1,14 @@
+// src/components/WalletComponents/Account/ConnectModal.tsx
+
 import React, { useEffect, useRef } from "react";
+
+// Reown AppKit (WalletConnect v2, unified wallet flow)
+import { useAppKit } from "@reown/appkit/react";
 
 import coinbase_Logo from "../../assets/coinbase_Logo.png";
 import metamask_Logo from "../../assets/svg/metamask_Logo.svg";
 import walletconnect_Logo from "../../assets/svg/walletconnect_Logo.svg";
-import { coinbaseWallet } from "../../../connectors/coinbaseWallet";
-import { metaMask } from "../../../connectors/metaMask";
-import { walletConnect } from "../../../connectors/walletConnect";
+
 import ConnectButton from "./ConnectButton";
 import { enqueueSnackbar } from "notistack";
 
@@ -19,6 +22,30 @@ interface ConnectModalProps {
   >;
 }
 
+/**
+ * ConnectModal — AppKit version
+ *
+ * REMOVED (legacy web3-react connectors):
+ *   import { coinbaseWallet } from "../../../connectors/coinbaseWallet";
+ *   import { metaMask } from "../../../connectors/metaMask";
+ *   import { walletConnect } from "../../../connectors/walletConnect";
+ *
+ * REMOVED (manual activation logic):
+ *   await metaMask.activate()
+ *   await walletConnect.activate()
+ *   await coinbaseWallet.activate()
+ *
+ * REMOVED (manual error handling for provider modals)
+ *
+ * REPLACEMENT:
+ *   - AppKit owns:
+ *       • provider discovery
+ *       • WalletConnect v2 session
+ *       • QR / deep link / injected wallets
+ *       • error handling
+ *
+ *   - This component is now UI-only.
+ */
 const ConnectModal: React.FC<ConnectModalProps> = ({
   isModalOpen,
   setIsModalOpen,
@@ -26,57 +53,56 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // AppKit modal controller
+  const { open } = useAppKit();
+
   useEffect(() => {
     if (!isModalOpen) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsModalOpen(false);
     };
+
     window.addEventListener("keydown", onKey);
     const id = window.setTimeout(() => dialogRef.current?.focus(), 0);
+
     return () => {
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(id);
     };
   }, [isModalOpen, setIsModalOpen]);
 
-  const activateConnector = async (label: string) => {
+  /**
+   * New connection flow:
+   * - Wallet label is only used for UX / analytics.
+   * - AppKit decides which wallet actually connects.
+   */
+  const connectWith = async (
+    label: "MetaMask" | "WalletConnect" | "Coinbase Wallet"
+  ) => {
     try {
-      switch (label) {
-        case "MetaMask":
-          await metaMask.activate();
-          setSelectedWallet(label);
-          window.localStorage.setItem("connectorId", "injected");
-          break;
+      setSelectedWallet(label);
 
-        case "WalletConnect":
-          await walletConnect.activate();
-          setSelectedWallet(label);
-          window.localStorage.setItem("connectorId", "wallet_connect");
-          break;
+      // Optional: keep only if you rely on it elsewhere
+      window.localStorage.setItem("connectorId", label);
 
-        case "Coinbase Wallet":
-          await coinbaseWallet.activate();
-          setSelectedWallet(label);
-          window.localStorage.setItem("connectorId", "injected");
-          break;
-
-        default:
-          break;
-      }
-    } catch (error: any) {
-      if (error && error.message !== "User closed modal") {
-        enqueueSnackbar(
-          error && error.message ? error.message : "Something went wrong",
-          {
-            variant: "warning",
-            autoHideDuration: 3000,
-          }
-        );
-      }
-    } finally {
       setIsModalOpen(false);
+
+      // Open AppKit modal (WalletConnect v2)
+      await open();
+    } catch (error: any) {
+      // AppKit already filters most user-cancelled cases,
+      // but we keep a defensive snackbar for unexpected failures.
+      enqueueSnackbar(
+        error?.message ?? "Wallet connection failed",
+        {
+          variant: "warning",
+          autoHideDuration: 3000,
+        }
+      );
     }
   };
+
   return (
     <>
       {isModalOpen && (
@@ -90,6 +116,7 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
             className="absolute inset-0 bg-black/60"
             onClick={() => setIsModalOpen(false)}
           />
+
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <div
               ref={dialogRef}
@@ -104,6 +131,7 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
                 >
                   Connect Your Wallet
                 </h2>
+
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -128,23 +156,26 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
                   </svg>
                 </button>
               </div>
+
               <div className="mb-4 h-1 w-16 rounded bg-[#00FFF8]" />
 
               <div className="flex flex-col items-center">
                 <ConnectButton
                   label="MetaMask"
                   image={metamask_Logo}
-                  onClick={() => activateConnector("MetaMask")}
+                  onClick={() => connectWith("MetaMask")}
                 />
+
                 <ConnectButton
                   label="WalletConnect"
                   image={walletconnect_Logo}
-                  onClick={() => activateConnector("WalletConnect")}
+                  onClick={() => connectWith("WalletConnect")}
                 />
+
                 <ConnectButton
                   label="Coinbase Wallet"
                   image={coinbase_Logo}
-                  onClick={() => activateConnector("Coinbase Wallet")}
+                  onClick={() => connectWith("Coinbase Wallet")}
                 />
               </div>
 
@@ -160,11 +191,11 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
                     Click here
                   </a>
                 </p>
+
                 <p className="text-sm opacity-90">
-                  Wallets are provided by External Providers and by selecting
-                  you agree to Terms of those Providers. Your access to the
-                  wallet might be reliant on the External Provider being
-                  operational.
+                  Wallets are provided by external providers. By continuing, you
+                  agree to their terms. Wallet availability depends on the
+                  provider being operational.
                 </p>
               </div>
             </div>
