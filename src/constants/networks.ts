@@ -1,3 +1,11 @@
+/**
+ * network configuration refactor.
+ * ensures rpc compatibility and sepolia support required
+ * by walletconnect v2 initialization.
+ *
+ * refactor by bertrand (tranbert78).
+ */
+
 import type { AddEthereumChainParameter } from "@web3-react/types";
 
 const infuraKey = process.env.REACT_APP_INFURA_KEY;
@@ -51,22 +59,23 @@ export function getAddChainParameters(
       rpcUrls: chainInformation.urls,
       blockExplorerUrls: chainInformation.blockExplorerUrls,
     };
-  } else {
-    return chainId;
   }
+  return chainId;
 }
 
 export const getNativeByChain = (chainId: number): string | undefined => {
   const chainInformation = CHAINS[chainId];
-  if (isExtendedChainInformation(chainInformation))
+  if (isExtendedChainInformation(chainInformation)) {
     return chainInformation.nativeCurrency.symbol;
+  }
   return undefined;
 };
 
 export const getExplorer = (chainId: number): string[] | undefined => {
   const chainInformation = CHAINS[chainId];
-  if (isExtendedChainInformation(chainInformation))
+  if (isExtendedChainInformation(chainInformation)) {
     return chainInformation.blockExplorerUrls;
+  }
   return undefined;
 };
 
@@ -88,12 +97,16 @@ export const CHAINS: {
     nativeCurrency: ETH,
     blockExplorerUrls: ["https://etherscan.io"],
   },
+
+  /*
+   * refactor note:
+   * goerli testnet is retained for compatibility, even though it is
+   * deprecated by most providers.
+   */
   5: {
     chainId: "5",
     urls: [
-      infuraKey
-        ? `https://goerli.infura.io/v3/${process.env.REACT_APP_INFURA_KEY}`
-        : "",
+      infuraKey ? `https://goerli.infura.io/v3/${infuraKey}` : "",
       alchemyKey ? `https://eth-goerli.g.alchemy.com/v2/${alchemyKey}` : "",
       pocketNetwork
         ? `https://eth-goerli.gateway.pokt.network/v1/lb/${pocketNetwork}`
@@ -104,13 +117,33 @@ export const CHAINS: {
     nativeCurrency: ETH,
     blockExplorerUrls: ["https://goerli.etherscan.io/"],
   },
+
+  /*
+   * refactor note:
+   * adds sepolia (11155111) so walletconnect v2 can initialize cleanly
+   * in development and test environments.
+   */
+  11155111: {
+    chainId: "11155111",
+    urls: [
+      infuraKey ? `https://sepolia.infura.io/v3/${infuraKey}` : "",
+      alchemyKey ? `https://eth-sepolia.g.alchemy.com/v2/${alchemyKey}` : "",
+      pocketNetwork
+        ? `https://eth-sepolia.gateway.pokt.network/v1/lb/${pocketNetwork}`
+        : "",
+      // refactor note: public fallback to ensure the rpc list is non-empty
+      "https://rpc.sepolia.org",
+    ].filter((url) => url !== ""),
+    name: "Sepolia",
+    nativeCurrency: ETH,
+    blockExplorerUrls: ["https://sepolia.etherscan.io/"],
+  },
+
   // Polygon
   137: {
     chainId: "137",
     urls: [
-      infuraKey
-        ? `https://polygon-mainnet.infura.io/v3/${process.env.REACT_APP_INFURA_KEY}`
-        : "",
+      infuraKey ? `https://polygon-mainnet.infura.io/v3/${infuraKey}` : "",
       alchemyKey
         ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`
         : "",
@@ -123,19 +156,19 @@ export const CHAINS: {
     nativeCurrency: MATIC,
     blockExplorerUrls: ["https://polygonscan.com"],
   },
+
   80001: {
     chainId: "80001",
     urls: [
       "https://rpc-mumbai.maticvigil.com",
-      infuraKey
-        ? `https://polygon-mumbai.infura.io/v3/${process.env.REACT_APP_INFURA_KEY}`
-        : "",
+      infuraKey ? `https://polygon-mumbai.infura.io/v3/${infuraKey}` : "",
       alchemyKey ? `https://polygon-mumbai.g.alchemy.com/v2/${alchemyKey}` : "",
     ].filter((url) => url !== ""),
     name: "Polygon Mumbai",
     nativeCurrency: MATIC,
     blockExplorerUrls: ["https://mumbai.polygonscan.com"],
   },
+
   // BSC
   56: {
     chainId: "56",
@@ -150,6 +183,7 @@ export const CHAINS: {
     nativeCurrency: BSC,
     blockExplorerUrls: ["https://bscscan.com/"],
   },
+
   97: {
     chainId: "97",
     urls: [
@@ -162,9 +196,9 @@ export const CHAINS: {
   },
 };
 
-export const URLS: { [chainId: number]: string[] } = Object.keys(
-  CHAINS
-).reduce<{ [chainId: number]: string[] }>((accumulator, chainId) => {
+export const URLS: { [chainId: number]: string[] } = Object.keys(CHAINS).reduce<{
+  [chainId: number]: string[];
+}>((accumulator, chainId) => {
   const validURLs: string[] = CHAINS[Number(chainId)].urls;
 
   if (validURLs.length) {

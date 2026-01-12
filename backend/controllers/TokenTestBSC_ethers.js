@@ -2,7 +2,12 @@ var express = require("express");
 var router = express.Router();
 const { ethers } = require("ethers");
 const ethUtil = require("ethereumjs-util");
-const ethereum_address = require("ethereum-address");
+
+// REMOVED (initial version):
+//const ethereum_address = require("ethereum-address");
+// ADDED (replacement):
+const { utils } = require("ethers"); 
+
 const { response } = require("express");
 var fetch = require('node-fetch');
 

@@ -1,13 +1,39 @@
+/**
+ * Wallet connection UI adjustment.
+ * Simplifies activation flow and aligns UI behavior
+ * with WalletConnect v2 and Web3React connectors.
+ *
+ * Refactor by Bertrand (tranbert78).
+ */
 import React, { useEffect, useRef } from "react";
 
 import { coinbaseWallet } from "../../connectors/coinbaseWallet";
 import { metaMask } from "../../connectors/metaMask";
-import { walletConnect } from "../../connectors/walletConnect";
+
+/*
+ * refactor note:
+ * - imports the walletconnect connector together with a single source of truth
+ *   for the default chain id.
+ * - avoids hardcoded chain ids in the ui layer and prevents configuration
+ *   mismatches with the connector.
+ */
+
+import {
+  walletConnect,
+  WALLETCONNECT_DEFAULT_CHAIN_ID,
+} from "../../connectors/walletConnect";
 
 import Metamask from "../../assets/wallet/Metamask.svg";
 import Phantom from "../../assets/wallet/Phantom.svg";
 import Coinbase from "../../assets/wallet/Coinbase.svg";
-import WalletConnect from "../../assets/wallet/WalletConnect.svg";
+
+/*
+ * refactor note:
+ * - asset renamed to walletconnecticon to avoid name collision
+ *   with the walletconnect connector instance.
+ */
+
+import WalletConnectIcon from "../../assets/wallet/WalletConnect.svg";
 
 interface ConnectModalProps {
   isModalOpen: boolean;
@@ -16,6 +42,7 @@ interface ConnectModalProps {
     React.SetStateAction<"MetaMask" | "WalletConnect" | "Coinbase" | null>
   >;
 }
+
 const ConnectWallet: React.FC<ConnectModalProps> = ({
   isModalOpen,
   setIsModalOpen,
@@ -27,9 +54,7 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
     if (!isModalOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsModalOpen(false);
-      }
+      if (e.key === "Escape") setIsModalOpen(false);
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -43,31 +68,74 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
       window.clearTimeout(id);
     };
   }, [isModalOpen, setIsModalOpen]);
+
   const activateConnector = async (label: string) => {
-    switch (label) {
-      case "MetaMask":
-        await metaMask.activate();
-        setSelectedWallet(label);
-        window.localStorage.setItem("connectorId", "injected");
-        break;
 
-      case "WalletConnect":
-        await walletConnect.activate();
-        setSelectedWallet(label);
-        window.localStorage.setItem("connectorId", "wallet_connect");
-        break;
+/*
+ * refactor note:
+ * - adds explicit error handling to make connector activation failures visible.
+ * - closes the modal before walletconnect activation to avoid qr modal conflicts.
+ */
+    try {
+      switch (label) {
+        case "MetaMask": {
+          await metaMask.activate();
+          setSelectedWallet("MetaMask");
+          window.localStorage.setItem("connectorId", "injected");
+          setIsModalOpen(false);
+          break;
+        }
 
-      case "Coinbase":
-        await coinbaseWallet.activate();
-        setSelectedWallet(label);
-        window.localStorage.setItem("connectorId", "injected");
+       case "WalletConnect": {
+  try {
+    setIsModalOpen(false);
+    await new Promise((r) => setTimeout(r, 50));
 
-        break;
+    console.log("WalletConnect: activating...");
+    await walletConnect.activate(); // use connector's default chain
 
-      default:
-        break;
+    console.log("WalletConnect: activated");
+    setSelectedWallet("WalletConnect");
+    window.localStorage.setItem("connectorId", "wallet_connect_v2");
+  } catch (err) {
+    console.error("WalletConnect activate failed:", err);
+
+    // Re-open your modal so the user can retry
+    setIsModalOpen(true);
+
+    // Optional: clear stored connectorId on failure
+    window.localStorage.removeItem("connectorId");
+  }
+  break;
+}
+        case "Coinbase": {
+          await coinbaseWallet.activate();
+          setSelectedWallet("Coinbase");
+
+           /*
+           * refactor note:
+           * - uses a dedicated storage key for coinbase instead of "injected".
+           */
+          window.localStorage.setItem("connectorId", "coinbase");
+
+          setIsModalOpen(false);
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(`${label} activate failed:`, err);
+
+      /*
+     * refactor note:
+     * - reopens the modal on activation failure to allow retry.
+     */
+      setIsModalOpen(true);
     }
   };
+
   return (
     <>
       {isModalOpen && (
@@ -94,16 +162,18 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
               >
                 Connect a wallet
               </h2>
+
               <div>
                 <p className="self-start text-base leading-10 text-gray-300 font-inter">
-                  Don't have an account?
+                  Don&apos;t have an account?
                   <a
                     href="#aa"
                     className="ml-1 font-semibold text-primary-900-high-emphasis hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-900-high-emphasis/50 rounded-sm"
-                 >
+                  >
                     Register here
                   </a>
                 </p>
+
                 <div className="mt-6 flex flex-col gap-4">
                   <button
                     type="button"
@@ -115,6 +185,8 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
                       Continue with Metamask
                     </span>
                   </button>
+
+                  {/* PRESENT IN INITIAL VERSION: Phantom is UI-only (no connector wired yet) */}
                   <button
                     type="button"
                     className="flex items-center gap-4 w-full rounded-lg border border-gray-600 p-3 text-left hover:border-gray-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 active:opacity-90"
@@ -124,6 +196,7 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
                       Continue with Phantom
                     </span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => activateConnector("Coinbase")}
@@ -134,12 +207,13 @@ const ConnectWallet: React.FC<ConnectModalProps> = ({
                       Continue with Coinbase
                     </span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => activateConnector("WalletConnect")}
                     className="flex items-center gap-4 w-full rounded-lg border border-gray-600 p-3 text-left hover:border-gray-500 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 active:opacity-90"
                   >
-                    <img src={WalletConnect} alt="WalletConnect" />
+                    <img src={WalletConnectIcon} alt="WalletConnect" />
                     <span className="px-2 text-lg font-semibold text-white font-inter">
                       Continue with WalletConnect
                     </span>

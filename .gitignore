@@ -6,4 +6,5 @@ yarn.lock
 *.log
 build
 google.json
-.cursor
+.cursor.env
+.env
