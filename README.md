@@ -6,6 +6,18 @@ A production-ready full-stack decentralized application showcasing modern blockc
 
 This project demonstrates a comprehensive Web3 platform combining prediction markets, staking mechanisms, and exchange functionality. The platform features seamless external integrations, real-time updates, and a robust RESTful API architecture designed for scalability and maintainability.
 
+
+## Wallet connectivity refactor (vs baseline)
+
+This branch hardens wallet connectivity compared to the upstream baseline:
+
+- WalletConnect v2 integration with explicit chain configuration (Mainnet / Sepolia)
+- More robust activation flow across MetaMask, WalletConnect, and Coinbase
+- Reduced runtime edge cases (chain mismatch, silent failures)
+- Cleaner environment configuration via `.env.example`
+- No change to application features, UI, or API surface
+
+
 ## Key Features
 
 - **Prediction Markets**: Bull/Bear prediction system with live price feeds and automated round management
